@@ -1,19 +1,17 @@
 import streamlit as st
-import pytesseract
 from PIL import Image
 import re
+import easyocr
 import json
+import io
 
-# 🔧 Si nécessaire, décommente et ajuste ce chemin vers tesseract.exe
-#pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+reader = easyocr.Reader(['fr', 'en'], gpu=False)
 
-# 🔍 OCR + Nettoyage
 def extract_text_from_image(image):
-    text = pytesseract.image_to_string(image, lang='eng+fra')
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    result = reader.readtext(image, detail=0, paragraph=False)
+    lines = [line.strip() for line in result if line.strip()]
     return lines
 
-# 📌 Analyse des lignes OCR
 def parse_id_card(lines):
     data = {}
 
@@ -73,23 +71,35 @@ def parse_id_card(lines):
 
 # 🎯 Interface Streamlit
 st.set_page_config(page_title="OCR Carte d'Identité", layout="centered")
-st.title("🪪 Lecture d'une Carte d'Identité Burkinabè par OCR")
+st.title("🪪 Lecture d'une Carte d'Identité Burkinabè")
 st.markdown("Importez une **photo de carte** pour extraire automatiquement les informations.")
 
 # 📥 Uploader image
-uploaded_file = st.file_uploader("📎 Importer ou glisser l'image ici (PNG, JPG)", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("📎 Importer ou glisser une image (JPG, PNG)", type=["png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Image chargée", use_container_width=True)
 
     with st.spinner("🔍 Lecture OCR et extraction..."):
-        lines = extract_text_from_image(image)
+        lines = extract_text_from_image(uploaded_file)
         parsed_data = parse_id_card(lines)
 
     st.success("✅ Extraction réussie !")
     st.subheader("📄 Informations extraites :")
     st.json(parsed_data)
 
+    # 🧾 Affichage brut
     st.subheader("🧾 Texte brut OCR :")
     st.code("\n".join(lines), language="text")
+
+    # 💾 Télécharger JSON
+    st.subheader("⬇️ Télécharger les données extraites")
+    json_data = json.dumps(parsed_data, indent=4, ensure_ascii=False)
+    json_bytes = io.BytesIO(json_data.encode("utf-8"))
+    st.download_button(
+        label="📥 Télécharger au format JSON",
+        data=json_bytes,
+        file_name="donnees_identite.json",
+        mime="application/json"
+    )
