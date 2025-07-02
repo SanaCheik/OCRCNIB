@@ -5,7 +5,7 @@ import re
 import json
 
 # 🔧 Si nécessaire, décommente et ajuste ce chemin vers tesseract.exe
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+#pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # 🔍 OCR + Nettoyage
 def extract_text_from_image(image):
