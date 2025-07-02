@@ -4,14 +4,20 @@ import re
 import easyocr
 import json
 import io
+import numpy as np
 
+# Créer un lecteur EasyOCR
 reader = easyocr.Reader(['fr', 'en'], gpu=False)
 
-def extract_text_from_image(image):
-    result = reader.readtext(image, detail=0, paragraph=False)
+# 🔍 Fonction d’extraction de texte
+def extract_text_from_image(uploaded_file):
+    image = Image.open(uploaded_file).convert("RGB")
+    image_np = np.array(image)
+    result = reader.readtext(image_np, detail=0, paragraph=False)
     lines = [line.strip() for line in result if line.strip()]
     return lines
 
+# 🧠 Fonction de parsing des lignes OCR
 def parse_id_card(lines):
     data = {}
 
@@ -29,7 +35,7 @@ def parse_id_card(lines):
     if len(lines) > 2:
         third_line = re.sub(r'[^\w\s]', '', lines[2]).strip()
         third_line = re.sub(r'^\s*NOMS?\s*', '', third_line, flags=re.IGNORECASE)
-        data["Nom"] = third_line.strip()
+        data["Nom"] = third_line.strip().title()
 
     if len(lines) > 3:
         fourth_line = re.sub(r'[^\w\s]', '', lines[3]).strip()
