@@ -1,3 +1,4 @@
+
 import streamlit as st
 from PIL import Image
 import re
@@ -20,58 +21,58 @@ def extract_text_from_image(uploaded_file):
 # 🧠 Fonction de parsing des lignes OCR
 def parse_id_card(lines):
     data = {}
+    previous_line = ""
 
-    if len(lines) > 0:
-        first_line = re.sub(r'[^\w\s]', '', lines[0])
-        if "CARTE" in first_line.upper() and "IDENTITE" in first_line.upper():
+    for i, line in enumerate(lines):
+        clean_line = re.sub(r'[^\w\s:/]', '', line).strip()
+        line_upper = clean_line.upper()
+
+        if i == 0 and "CARTE" in line_upper and "IDENTITE" in line_upper:
             data["Type Document"] = "CARTE NATIONALE D'IDENTITE BURKINABE"
 
-    if len(lines) > 1:
-        second_line = lines[1]
-        chiffres = ''.join(filter(str.isdigit, second_line))
-        if len(chiffres) == 17:
-            data["Numero_NIP"] = chiffres
+        if re.fullmatch(r'\d{17}', ''.join(filter(str.isdigit, clean_line))):
+            data["Numero_NIP"] = ''.join(filter(str.isdigit, clean_line))
 
-    if len(lines) > 2:
-        third_line = re.sub(r'[^\w\s]', '', lines[2]).strip()
-        third_line = re.sub(r'^\s*NOMS?\s*', '', third_line, flags=re.IGNORECASE)
-        data["Nom"] = third_line.strip().title()
+        if line_upper.startswith("NOM"):
+            nom = clean_line.split(":", 1)[-1].strip().title()
+            data["Nom"] = nom
 
-    if len(lines) > 3:
-        fourth_line = re.sub(r'[^\w\s]', '', lines[3]).strip()
-        fourth_line = re.sub(r'^\s*PR[ÉE]NOMS?\s*', '', fourth_line, flags=re.IGNORECASE)
-        data["Prenom"] = fourth_line.strip().title()
+        if line_upper.startswith("PRÉNOM") or line_upper.startswith("PRENOM") or line_upper.startswith("PRÉNOMS") or line_upper.startswith("PRENOMS"):
+            prenom = clean_line.split(":", 1)[-1].strip().title()
+            data["Prenom"] = prenom
 
-    for line in lines:
-        line_upper = line.upper()
-
-        if "NÉ" in line_upper or "NE(E)" in line_upper or "NE LE" in line_upper:
-            date_lieu = re.findall(r'(\d{2}/\d{2}/\d{4}).*?([A-Z ]+)', line_upper)
-            if date_lieu:
-                data["Date_naissance"] = date_lieu[0][0]
-                data["Lieu_naissance"] = date_lieu[0][1].strip().title()
+        if "NÉ" in line_upper or "NE(E)" in line_upper or "NÉ(E)" in line_upper:
+            date_match = re.search(r'\d{2}/\d{2}/\d{4}', clean_line)
+            if date_match:
+                data["Date_naissance"] = date_match.group()
+            # Vérifie la ligne suivante pour le lieu
+            if i + 1 < len(lines):
+                next_line = lines[i+1].strip()
+                if not next_line.upper().startswith(("SEXE", "TAILLE", "PROFESSION", "DÉLIVRÉE", "DELIVREE", "EXPIRE", "SIGNALURE")):
+                    data["Lieu_naissance"] = next_line.title()
 
         if "SEXE" in line_upper:
-            sexe_match = re.search(r'SEXE:?\s*([MF])', line_upper)
-            taille_match = re.search(r'TAILLE:?\s*([\d]+ ?cm)', line_upper)
+            sexe_match = re.search(r'SEXE\s*:?\s*([MF])', line_upper)
             if sexe_match:
                 data["Sexe"] = sexe_match.group(1)
-            if taille_match:
-                data["Taille"] = taille_match.group(1).replace(" ", "")
 
         if "PROFESSION" in line_upper:
-            data["Profession"] = line.split(":")[-1].strip().title()
+            prof = clean_line.split(":", 1)[-1].strip().title()
+            data["Profession"] = prof
 
         if "DÉLIVRÉE LE" in line_upper or "DELIVREE LE" in line_upper:
-            date_del = re.search(r'(\d{2}/\d{2}/\d{4})', line_upper)
-            if date_del:
-                data["Date_delivrance"] = date_del.group(1)
+            date_match = re.search(r'\d{2}/\d{2}/\d{4}', clean_line)
+            if date_match:
+                data["Date_delivrance"] = date_match.group()
 
         if "EXPIRE LE" in line_upper:
-            match = re.search(r'(\d{2}/\d{2}/\d{4}).*?([A-Z0-9]{5,})', line_upper)
-            if match:
-                data["Date_expiration"] = match.group(1)
-                data["Numero_document"] = match.group(2)
+            date_match = re.search(r'\d{2}/\d{2}/\d{4}', clean_line)
+            if date_match:
+                data["Date_expiration"] = date_match.group()
+
+        # Si la ligne ressemble à un numéro document isolé
+        if re.match(r'[A-Z]\d{8}', clean_line):
+            data["Numero_document"] = clean_line
 
     return data
 
